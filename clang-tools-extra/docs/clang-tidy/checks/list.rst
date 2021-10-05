@@ -152,6 +152,7 @@ Clang-Tidy Checks
    `cert-err58-cpp <cert/err58-cpp.html>`_,
    `cert-err60-cpp <cert/err60-cpp.html>`_,
    `cert-flp30-c <cert/flp30-c.html>`_,
+   `cert-int17-c <cert/int17-c.html>`_,
    `cert-mem57-cpp <cert/mem57-cpp.html>`_,
    `cert-msc50-cpp <cert/msc50-cpp.html>`_,
    `cert-msc51-cpp <cert/msc51-cpp.html>`_,
@@ -327,6 +328,7 @@ Clang-Tidy Checks
    `performance-type-promotion-in-math-fn <performance/type-promotion-in-math-fn.html>`_, "Yes"
    `performance-unnecessary-copy-initialization <performance/unnecessary-copy-initialization.html>`_, "Yes"
    `performance-unnecessary-value-param <performance/unnecessary-value-param.html>`_, "Yes"
+   `portability-non-portable-integer-constant <portability/non-portable-integer-constant.html>`_,
    `portability-restrict-system-includes <portability/restrict-system-includes.html>`_, "Yes"
    `portability-simd-intrinsics <portability/simd-intrinsics.html>`_,
    `portability-std-allocator-const <portability/std-allocator-const.html>`_,

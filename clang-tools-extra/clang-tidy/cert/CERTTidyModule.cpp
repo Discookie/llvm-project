@@ -25,6 +25,7 @@
 #include "../misc/StaticAssertCheck.h"
 #include "../misc/ThrowByValueCatchByReferenceCheck.h"
 #include "../performance/MoveConstructorInitCheck.h"
+#include "../portability/NonPortableIntegerConstantCheck.h"
 #include "../readability/UppercaseLiteralSuffixCheck.h"
 #include "CommandProcessorCheck.h"
 #include "DefaultOperatorNewAlignmentCheck.h"
@@ -302,6 +303,9 @@ public:
         "cert-flp37-c");
     // FIO
     CheckFactories.registerCheck<misc::NonCopyableObjectsCheck>("cert-fio38-c");
+    // INT
+    CheckFactories.registerCheck<portability::NonPortableIntegerConstantCheck>(
+        "cert-int17-c");
     // MSC
     CheckFactories.registerCheck<bugprone::UnsafeFunctionsCheck>(
         "cert-msc24-c");
