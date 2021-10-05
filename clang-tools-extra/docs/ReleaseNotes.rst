@@ -181,6 +181,11 @@ New checks
   Future libc++ will remove the extension (`D120996
   <https://reviews.llvm.org/D120996>`).
 
+- New :doc:`portability-non-portable-integer-constant
+  <clang-tidy/checks/portability-non-portable-integer-constant>` check.
+
+  Finds masks that are being used in a non-portable manner.
+
 New check aliases
 ^^^^^^^^^^^^^^^^^
 
