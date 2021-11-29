@@ -27,6 +27,8 @@ void NonPortableIntegerConstantCheck::check(
     const MatchFinder::MatchResult &Result) {
   const auto *MatchedInt = Result.Nodes.getNodeAs<IntegerLiteral>("integer");
 
+  assert(MatchedInt);
+
   std::string LiteralStr =
       Lexer::getSourceText(
           CharSourceRange::getTokenRange(MatchedInt->getSourceRange()),
@@ -46,7 +48,7 @@ void NonPortableIntegerConstantCheck::check(
 
   if(StrippedLiteral.consume_front("0b"))
   {
-    StrippedLiteral = StrippedLiteral.take_while(llvm::isHexDigit);
+    StrippedLiteral = StrippedLiteral.take_while([](char c){ return c == '0' || c == '1'; });
     if(IntegerLiteralTypeSize == StrippedLiteral.size())
         IsFullPattern = true;
     
@@ -54,7 +56,8 @@ void NonPortableIntegerConstantCheck::check(
   else if(StrippedLiteral.consume_front("0x"))
   {
     StrippedLiteral = StrippedLiteral.take_while(llvm::isHexDigit);
-    if(IntegerLiteralTypeSize == StrippedLiteral.size()*4)
+    const unsigned StrippedLiteralSizeInBits = StrippedLiteral.size() * 4; // Hexadecimal to binary.
+    if(IntegerLiteralTypeSize == StrippedLiteralSizeInBits)
         IsFullPattern = true;
   }
   else if(StrippedLiteral.consume_front("0")) // not yet done
@@ -76,6 +79,8 @@ void NonPortableIntegerConstantCheck::check(
                << "  max signed: " << llvm::APInt::getSignedMaxValue(IntegerLiteralTypeSize ) << "\n\n"
                << "  IsMax: " << LiteralValue.isMaxValue() << "\n\n"
                << "  IsMaxSigned: " << LiteralValue.isMaxSignedValue() << "\n\n"
+               << "  IsMax -1 : " << (MatchedInt->getValue()+1).isMaxValue() << "\n\n"
+               << "  IsMaxSigned -1 : " << (MatchedInt->getValue()+1).isMaxSignedValue() << "\n\n"
                << "  IsMin: " << LiteralValue.isMinValue() << "\n\n"
                << "  IsMinSigned: " << LiteralValue.isMinSignedValue() << "\n\n"
                << "--------------------------------" << "\n\n";
@@ -86,8 +91,12 @@ void NonPortableIntegerConstantCheck::check(
 
   const bool RepresentsZero = LiteralValue.isNullValue();
   const bool HasLeadingZeroes = StrippedLiteral[0] == '0';
+  const bool IsMax = LiteralValue.isMaxValue() || LiteralValue.isMaxSignedValue();
+  const bool IsMin = LiteralValue.isMinValue() || LiteralValue.isMinSignedValue();
+  const bool IsUnsignedMax_1 = (MatchedInt->getValue()+1).isMaxValue();
+
   const bool IntegralPattern =
-      (HasLeadingZeroes && !RepresentsZero) || IsFullPattern;
+      (HasLeadingZeroes && !RepresentsZero) || IsFullPattern || IsMax || (IsMin && !RepresentsZero) || IsUnsignedMax_1;
 
   if (IntegralPattern)
     diag(MatchedInt->getBeginLoc(),
