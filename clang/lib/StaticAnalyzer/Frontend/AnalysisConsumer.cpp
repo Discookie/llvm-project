@@ -406,6 +406,11 @@ static bool shouldSkipFunction(const Decl *D,
   if (const auto *CD = dyn_cast<CXXConstructorDecl>(D))
     if (CD->isInheritingConstructor())
       return true;
+  // Skip analysis of defaulted functions as top level, as these functions
+  // don't have a body in the code either.
+  if (const auto *FD = dyn_cast<FunctionDecl>(D))
+    if (FD->isDefaulted())
+      return true;
 
   // We want to re-analyse the functions as top level in the following cases:
   // - The 'init' methods should be reanalyzed because
