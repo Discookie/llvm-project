@@ -28,6 +28,9 @@ void regular() {
   180079837;
   0xabbccdd;
 
+  // FIXME: No warnings as long as not all of the value are used
+  0x3fffffff;
+
   // 0b1111111111111111111111111111111;
   // (only 31 bits) shouldn't be reported as we discussed before, but it's recognized as MaxSigned Int
 }
