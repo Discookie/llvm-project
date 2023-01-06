@@ -18,10 +18,19 @@ namespace clang {
 namespace tidy {
 namespace portability {
 
+struct SanitizedLiteral {
+  StringRef StrippedLiteral;
+  // The exact bit value of the MSB
+  size_t MSBBit;
+  // The bit value of MSB rounded up to the nearest byte.
+  size_t MSBByte;
+  size_t Radix;
+};
+
 // Stripped literal, MSB position, radix of literal
 // Does not calculate true MSB - only takes the value of the first digit into
 // account alongside the total digit count. Returns MSB zero if radix is 10.
-std::tuple<StringRef, uint64_t, int> sanitizeAndCountBits(std::string &IntegerLiteral) {
+SanitizedLiteral sanitizeAndCountBits(std::string &IntegerLiteral) {
   llvm::erase_value(IntegerLiteral, '\''); // Skip digit separators.
   StringRef StrippedLiteral{IntegerLiteral};
 
@@ -43,24 +52,33 @@ std::tuple<StringRef, uint64_t, int> sanitizeAndCountBits(std::string &IntegerLi
   {
     StrippedLiteral = StrippedLiteral.take_while(
       [](char c){return c == '0' || c == '1'; });
-    return std::tuple { StrippedLiteral, StrippedLiteral.size(), 2 };
+    return SanitizedLiteral { StrippedLiteral,
+        StrippedLiteral.size(), 
+        StrippedLiteral.size(), 
+        2 };
   }
   else if(StrippedLiteral.consume_front("0x"))
   {
     StrippedLiteral = StrippedLiteral.take_while(llvm::isHexDigit);
-    return std::tuple { StrippedLiteral,
-        (StrippedLiteral.size() - 1) * 4 + DigitMSB(StrippedLiteral.front()),
-        16 };
+    assert(!StrippedLiteral.empty());
+
+    return { StrippedLiteral,
+      (StrippedLiteral.size() - 1) * 4 + DigitMSB(StrippedLiteral.front()),
+      StrippedLiteral.size() * 4,
+      16 };
   }
   else if(StrippedLiteral != "0" && StrippedLiteral.consume_front("0"))
   {
     StrippedLiteral = StrippedLiteral.take_while(
       [](char c){ return c >= '0' || c <= '7'; });
-    return std::tuple { StrippedLiteral,
+    assert(!StrippedLiteral.empty());
+
+    return { StrippedLiteral,
         (StrippedLiteral.size() - 1) * 3 + DigitMSB(StrippedLiteral.front()),
+        StrippedLiteral.size() * 3,
         8 };
   } else {
-    return std::tuple { StrippedLiteral, 0, 10 };
+    return { StrippedLiteral, 0, 0, 10 };
   }
 }
 
@@ -83,9 +101,8 @@ void NonPortableIntegerConstantCheck::check(
 
   llvm::APInt LiteralValue = MatchedInt->getValue();
 
-  auto [ StrippedLiteral, LiteralMSB, LiteralRadix ] = sanitizeAndCountBits(
-    LiteralStr
-  );
+  auto SanitizedLiteral =
+      sanitizeAndCountBits(LiteralStr);
   QualType IntegerLiteralType = MatchedInt->getType();
   unsigned int LiteralBitWidth = Result.Context->getTypeSize( IntegerLiteralType );
 
@@ -93,12 +110,12 @@ void NonPortableIntegerConstantCheck::check(
   // for testing purpose
   llvm::errs() << "--------------------------------" << "\n\n"
               << "\n LiteralStr: " << LiteralStr << "\n APINT: " << LiteralValue
-               << "  StrippedLiteral:" << StrippedLiteral
-               << "  str size:" << StrippedLiteral.size() << "\n\n"
+               << "  StrippedLiteral:" << SanitizedLiteral.StrippedLiteral
+               << "  str size:" << SanitizedLiteral.StrippedLiteral.size() << "\n\n"
                << "  Type: " << IntegerLiteralType.getAsString() << "\n\n"
                << "  Size: " << LiteralBitWidth << "\n\n"
-               << "  MSB: " << LiteralMSB << "\n\n"
-               << "  Radix: " << LiteralRadix << "\n\n"
+               << "  MSB: " << SanitizedLiteral.MSBBit << "\n\n"
+               << "  Radix: " << SanitizedLiteral.Radix << "\n\n"
                << "  max: " << llvm::APInt::getMaxValue(LiteralBitWidth ) << "\n\n"
                << "  max signed: " << llvm::APInt::getSignedMaxValue(LiteralBitWidth ) << "\n\n"
                << "  IsMax: " << LiteralValue.isMaxValue() << "\n\n"
@@ -110,38 +127,43 @@ void NonPortableIntegerConstantCheck::check(
                << "--------------------------------" << "\n\n";
 
   // Only potential edge case is "0", handled by sanitizeAndCountBits.
-  assert(!StrippedLiteral.empty() && "integer literal should not be empty");
+  assert(!SanitizedLiteral.StrippedLiteral.empty() && "integer literal should not be empty");
 
-  const bool IsFullPattern = LiteralMSB == LiteralBitWidth;
+  const bool IsFullPattern = SanitizedLiteral.MSBBit == LiteralBitWidth;
+  const bool IsFullPatternAlternate = SanitizedLiteral.MSBByte == LiteralBitWidth;
   const bool RepresentsZero = LiteralValue.isNullValue();
-  const bool HasLeadingZeroes = StrippedLiteral[0] == '0';
+  const bool HasLeadingZeroes = SanitizedLiteral.StrippedLiteral[0] == '0';
   const bool IsMax = LiteralValue.isMaxValue() || LiteralValue.isMaxSignedValue();
   const bool IsMin = LiteralValue.isMinValue() || LiteralValue.isMinSignedValue();
-  const bool IsUnsignedMax_1 = (LiteralValue + 1).isMaxValue();
-
-  if (IsFullPattern) {
-    diag(MatchedInt->getBeginLoc(),
-         "error-prone literal: should not rely on the most significant bit",
-         DiagnosticIDs::Note);
-  }  
+  const bool IsUnsignedMaxMinusOne = (LiteralValue + 1).isMaxValue();
 
   if (HasLeadingZeroes && !RepresentsZero) {
     diag(MatchedInt->getBeginLoc(),
          "integer literal has leading zeroes", DiagnosticIDs::Note);
-  }  
-
-  if (IsMax || IsUnsignedMax_1) {
+  } else if (IsMax || IsUnsignedMaxMinusOne) {
     diag(MatchedInt->getBeginLoc(),
          "do not hardcode integer maximum value", DiagnosticIDs::Note);
-  }  
-
-  if (IsMin && !RepresentsZero) {
+  } else if (IsMin && !RepresentsZero) {
     diag(MatchedInt->getBeginLoc(),
          "do not hardcode integer minimum value", DiagnosticIDs::Note);
+  // Matches only the most significant bit,
+  // eg. unsigned value 0x80000000, but not 0x30000000.
+  } else if (IsFullPattern) {
+    diag(MatchedInt->getBeginLoc(),
+         "error-prone literal: should not rely on the most significant bit",
+         DiagnosticIDs::Note);
+  // This warning also matches 0x30000000, for statistics purposes for now.
+  } else if (IsFullPatternAlternate) {
+    diag(MatchedInt->getBeginLoc(),
+         "error-prone literal: should not rely on the most significant bit (alternate)",
+         DiagnosticIDs::Note);
   }
 
   const bool IntegralPattern =
-      (HasLeadingZeroes && !RepresentsZero) || IsFullPattern || IsMax || (IsMin && !RepresentsZero) || IsUnsignedMax_1;
+      (HasLeadingZeroes && !RepresentsZero) || 
+      IsMax || IsUnsignedMaxMinusOne ||
+      (IsMin && !RepresentsZero) ||
+      IsFullPattern;
 
   if (IntegralPattern)
     diag(MatchedInt->getBeginLoc(),

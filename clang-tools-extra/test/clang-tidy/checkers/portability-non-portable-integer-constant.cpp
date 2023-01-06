@@ -31,11 +31,13 @@ void regular() {
   // FIXME: No warnings as long as not all of the value are used
   0x3fffffff;
 
-  // 0b1111111111111111111111111111111;
-  // (only 31 bits) shouldn't be reported as we discussed before, but it's recognized as MaxSigned Int
+  // FIXME: (only 31 bits) shouldn't be reported, but it's recognized as MaxSigned Int
+  0b1111111111111111111111111111111;
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: integer is being used in a non-portable manner
 }
 
 // INT_MIN, INT_MAX, UINT_MAX, UINT_MAX-1
+// All binary literals are 32 bits long
 void limits_int() {
   -214748'3'648;  // not recognize as Min
   // --CHECK-MESSAGES: :[[@LINE-1]]:4: warning: integer is being used in a non-portable manner
@@ -86,6 +88,7 @@ void limits_int() {
 }
 
 // LLONG_MIN, LLONG_MAX, ULLONG_MAX, ULLONG_MAX-1
+// Most binary literals are 64 bits long
 void limits_llong() {
   -9'22337203'6854775808LL;
   // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: integer is being used in a non-portable manner
@@ -108,6 +111,7 @@ void limits_llong() {
   0777777777777777777777;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: integer is being used in a non-portable manner
 
+  // 63 bits
   0b111111111111111111111111111111111111111111111111111111111111111;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: integer is being used in a non-portable manner
 
@@ -123,7 +127,8 @@ void limits_llong() {
   0b1111111111111111111111111111111111111111111111111111111111111111;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: integer is being used in a non-portable manner
 
-  // 18446744073709551614llU;
+  18446744073709551614llU;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: integer is being used in a non-portable manner
 
   0xFFFFFFFFFFFFFFFe;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: integer is being used in a non-portable manner
