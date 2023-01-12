@@ -1,7 +1,9 @@
-.. title:: clang-tidy - bugprone-non-portable-integer-constant
+.. title:: clang-tidy - portability-non-portable-integer-constant
 
-bugprone-non-portable-integer-constant
+portability-non-portable-integer-constant
 ======================================
+
+`cert-int17-c` redirects here as an alias for this check.
 
 Finds integer literals that might have different bit-widths on different platforms.
 
