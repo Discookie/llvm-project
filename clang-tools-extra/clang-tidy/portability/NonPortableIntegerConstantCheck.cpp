@@ -94,88 +94,67 @@ void NonPortableIntegerConstantCheck::check(
 
   assert(MatchedInt);
 
+  QualType IntegerLiteralType = MatchedInt->getType();
+  auto LiteralBitWidth = Result.Context->getTypeSize( IntegerLiteralType );
+
+  llvm::APInt LiteralValue = MatchedInt->getValue();
+
   std::string LiteralStr =
       Lexer::getSourceText(
           CharSourceRange::getTokenRange(MatchedInt->getSourceRange()),
           *Result.SourceManager, Result.Context->getLangOpts(), nullptr)
           .lower();
 
-  // FIXME: In some cases, a macro expansion happens where we cannot parse the source text.
+  // FIXME: There are two problematic cases where we cannot read the character.
+  // With macros, in some cases (such as when not passing an argument) the
+  // integer literal's token range will be 0 long.
   if (LiteralStr.size() == 0)
     return;
-
-  llvm::APInt LiteralValue = MatchedInt->getValue();
+  // FIXME: A template function with an integer literal template argument will
+  // warn in both the argument, and the function body. In the instantiated body,
+  // the source range will contain the argument name, not the literal.
+  if (!llvm::isDigit(LiteralStr[0]))
+    return;
 
   auto SanitizedLiteral =
       sanitizeAndCountBits(LiteralStr);
-  QualType IntegerLiteralType = MatchedInt->getType();
-  unsigned int LiteralBitWidth = Result.Context->getTypeSize( IntegerLiteralType );
-
-  /*
-  // for testing purpose
-  llvm::errs() << "--------------------------------" << "\n\n"
-              << "\n LiteralStr: " << LiteralStr << "\n APINT: " << LiteralValue
-               << "  StrippedLiteral:" << SanitizedLiteral.StrippedLiteral
-               << "  str size:" << SanitizedLiteral.StrippedLiteral.size() << "\n\n"
-               << "  Type: " << IntegerLiteralType.getAsString() << "\n\n"
-               << "  Size: " << LiteralBitWidth << "\n\n"
-               << "  MSB: " << SanitizedLiteral.MSBBit << "\n\n"
-               << "  Radix: " << SanitizedLiteral.Radix << "\n\n"
-               << "  max: " << llvm::APInt::getMaxValue(LiteralBitWidth ) << "\n\n"
-               << "  max signed: " << llvm::APInt::getSignedMaxValue(LiteralBitWidth ) << "\n\n"
-               << "  IsMax: " << LiteralValue.isMaxValue() << "\n\n"
-               << "  IsMaxSigned: " << LiteralValue.isMaxSignedValue() << "\n\n"
-               << "  IsMax -1 : " << (MatchedInt->getValue()+1).isMaxValue() << "\n\n"
-               << "  IsMaxSigned -1 : " << (MatchedInt->getValue()+1).isMaxSignedValue() << "\n\n"
-               << "  IsMin: " << LiteralValue.isMinValue() << "\n\n"
-               << "  IsMinSigned: " << LiteralValue.isMinSignedValue() << "\n\n"
-               << "--------------------------------" << "\n\n";
-  */
 
   // Only potential edge case is "0", handled by sanitizeAndCountBits.
-  assert(!SanitizedLiteral.StrippedLiteral.empty() && "integer literal should not be empty");
+  assert(!SanitizedLiteral.StrippedLiteral.empty() &&
+         "integer literal should not be empty");
 
-  assert(SanitizedLiteral.MSBBit <= LiteralBitWidth && "integer literal has more bits set than its bit width");
-  const bool IsFullPattern = SanitizedLiteral.MSBBit == LiteralBitWidth;
-  // Can be greater, eg. an 8-bit BYTE_MAX byte value represented by 377 octal
-  const bool IsFullPatternAlternate = SanitizedLiteral.MSBByte >= LiteralBitWidth;
-  const bool RepresentsZero = LiteralValue.isNullValue();
-  const bool HasLeadingZeroes = SanitizedLiteral.StrippedLiteral[0] == '0';
-  const bool IsMax = LiteralValue.isMaxValue() || LiteralValue.isMaxSignedValue();
-  const bool IsMin = LiteralValue.isMinValue() || LiteralValue.isMinSignedValue();
-  const bool IsUnsignedMaxMinusOne = (LiteralValue + 1).isMaxValue();
+  assert(SanitizedLiteral.MSBBit <= LiteralBitWidth &&
+         "integer literal has more bits set than its bit width");
 
-  const bool IntegralPattern =
-      (HasLeadingZeroes && !RepresentsZero) || 
-      IsMax || IsUnsignedMaxMinusOne ||
-      (IsMin && !RepresentsZero) ||
-      IsFullPattern || IsFullPatternAlternate;
+  bool IsMax = LiteralValue.isMaxValue() || LiteralValue.isMaxSignedValue();
+  bool IsUnsignedMaxMinusOne = (LiteralValue + 1).isMaxValue();
+  bool IsMin = LiteralValue.isMinValue() || LiteralValue.isMinSignedValue();
+  bool RepresentsZero = LiteralValue.isNullValue();
 
-  if (IntegralPattern) {
+  bool IsFullPattern = SanitizedLiteral.MSBBit == LiteralBitWidth;
+  // Can be greater, eg. an 8-bit UCHAR_MAX byte value represented by 377 octal
+  bool IsFullPatternAlternate = SanitizedLiteral.MSBByte >= LiteralBitWidth;
+  bool HasLeadingZeroes = SanitizedLiteral.StrippedLiteral[0] == '0';
+
+  if (IsMax || IsUnsignedMaxMinusOne) {
     diag(MatchedInt->getBeginLoc(),
-         "integer is being used in a non-portable manner");
-
-    if (HasLeadingZeroes && !RepresentsZero) {
-      diag(MatchedInt->getBeginLoc(),
-           "integer literal has leading zeroes", DiagnosticIDs::Note);
-    } else if (IsMax || IsUnsignedMaxMinusOne) {
-      diag(MatchedInt->getBeginLoc(),
-           "do not hardcode integer maximum value", DiagnosticIDs::Note);
-    } else if (IsMin && !RepresentsZero) {
-      diag(MatchedInt->getBeginLoc(),
-           "do not hardcode integer minimum value", DiagnosticIDs::Note);
-    // Matches only the most significant bit,
-    // eg. unsigned value 0x80000000, but not 0x30000000.
-    } else if (IsFullPattern) {
-      diag(MatchedInt->getBeginLoc(),
-           "error-prone literal: should not rely on the most significant bit",
-           DiagnosticIDs::Note);
-    // This warning also matches 0x30000000, for statistics purposes for now.
-    } else if (IsFullPatternAlternate) {
-      diag(MatchedInt->getBeginLoc(),
-           "error-prone literal: should not rely on the most significant bit (alternate)",
-           DiagnosticIDs::Note);
-    }
+          "error-prone literal: do not hardcode integer maximum value");
+  } else if (IsMin && !RepresentsZero) {
+    diag(MatchedInt->getBeginLoc(),
+          "error-prone literal: do not hardcode integer minimum value");
+  } else if (HasLeadingZeroes && !RepresentsZero) {
+    diag(MatchedInt->getBeginLoc(),
+         "error-prone literal: integer literal has leading zeroes");
+  // Matches only the most significant bit,
+  // eg. unsigned value 0x80000000.
+  } else if (IsFullPattern) {
+    diag(MatchedInt->getBeginLoc(),
+         "error-prone literal: should not rely on the most significant bit");
+  // This warning also matches literals like 0x30000000,
+  // for statistics purposes for now.
+  } else if (IsFullPatternAlternate) {
+    diag(MatchedInt->getBeginLoc(),
+      "error-prone literal: should not rely on bits of most significant byte");
   }
 }
 
