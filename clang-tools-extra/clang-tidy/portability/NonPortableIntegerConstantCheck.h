@@ -15,10 +15,10 @@ namespace clang {
 namespace tidy {
 namespace portability {
 
-/// Finds masks that are being used in a non-portable manner
+/// Finds integer literals that are being used in a non-portable manner
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/portability-non_portable_integer_constant.html
+/// http://clang.llvm.org/extra/clang-tidy/checks/portability/non-portable-integer-constant.html
 class NonPortableIntegerConstantCheck : public ClangTidyCheck {
 public:
   NonPortableIntegerConstantCheck(StringRef Name, ClangTidyContext *Context)

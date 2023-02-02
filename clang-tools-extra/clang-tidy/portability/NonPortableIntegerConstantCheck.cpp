@@ -17,9 +17,9 @@ using namespace clang::ast_matchers;
 namespace clang {
 namespace tidy {
 namespace portability {
+namespace {
 
-// FIXME: Replace with structured binding
-struct SanitizedLiteral {
+struct SanitizedLiteralType {
   StringRef StrippedLiteral;
   // The exact bit value of the MSB
   std::size_t MSBBit;
@@ -31,7 +31,7 @@ struct SanitizedLiteral {
 // Stripped literal, MSB position, radix of literal
 // Does not calculate true MSB - only takes the value of the first digit into
 // account alongside the total digit count. Returns MSB zero if radix is 10.
-SanitizedLiteral sanitizeAndCountBits(std::string &IntegerLiteral) {
+static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
   llvm::erase_value(IntegerLiteral, '\''); // Skip digit separators.
   StringRef StrippedLiteral{IntegerLiteral};
 
@@ -53,7 +53,7 @@ SanitizedLiteral sanitizeAndCountBits(std::string &IntegerLiteral) {
   {
     StrippedLiteral = StrippedLiteral.take_while(
       [](char c){return c == '0' || c == '1'; });
-    return SanitizedLiteral { StrippedLiteral,
+    return { StrippedLiteral,
         StrippedLiteral.size(), 
         StrippedLiteral.size(), 
         2 };
@@ -83,6 +83,8 @@ SanitizedLiteral sanitizeAndCountBits(std::string &IntegerLiteral) {
   }
 }
 
+} // namespace
+
 void NonPortableIntegerConstantCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(integerLiteral().bind("integer"), this);
 }
@@ -108,16 +110,16 @@ void NonPortableIntegerConstantCheck::check(
   // FIXME: There are two problematic cases where we cannot read the character.
   // With macros, in some cases (such as when not passing an argument) the
   // integer literal's token range will be 0 long.
-  if (LiteralStr.size() == 0)
+  if (LiteralStr.empty())
     return;
-  // FIXME: A template function with an integer literal template argument will
-  // warn in both the argument, and the function body. In the instantiated body,
-  // the source range will contain the argument name, not the literal.
+  // A template function with an integer literal template argument will warn in
+  // both the argument, and the function body. In the instantiated body, the
+  // source range will contain the argument name, not the literal.
+  // FIXME: This disables checking macro literals entirely.
   if (!llvm::isDigit(LiteralStr[0]))
     return;
 
-  auto SanitizedLiteral =
-      sanitizeAndCountBits(LiteralStr);
+  const SanitizedLiteralType SanitizedLiteral = sanitizeAndCountBits(LiteralStr);
 
   // Only potential edge case is "0", handled by sanitizeAndCountBits.
   assert(!SanitizedLiteral.StrippedLiteral.empty() &&
@@ -131,30 +133,30 @@ void NonPortableIntegerConstantCheck::check(
   bool IsMin = LiteralValue.isMinValue() || LiteralValue.isMinSignedValue();
   bool RepresentsZero = LiteralValue.isNullValue();
 
-  bool IsFullPattern = SanitizedLiteral.MSBBit == LiteralBitWidth;
+  bool IsMSBBitUsed = SanitizedLiteral.MSBBit == LiteralBitWidth;
   // Can be greater, eg. an 8-bit UCHAR_MAX byte value represented by 377 octal
-  bool IsFullPatternAlternate = SanitizedLiteral.MSBByte >= LiteralBitWidth;
+  bool IsMSBByteUsed = SanitizedLiteral.MSBByte >= LiteralBitWidth;
   bool HasLeadingZeroes = SanitizedLiteral.StrippedLiteral[0] == '0';
 
   if (IsMax || IsUnsignedMaxMinusOne) {
     diag(MatchedInt->getBeginLoc(),
-          "error-prone literal: do not hardcode integer maximum value");
+         "non-portable integer literal: hardcoded platform-specific maximum value");
   } else if (IsMin && !RepresentsZero) {
     diag(MatchedInt->getBeginLoc(),
-          "error-prone literal: do not hardcode integer minimum value");
+         "non-portable integer literal: hardcoded platform-specific minimum value");
   } else if (HasLeadingZeroes && !RepresentsZero) {
     diag(MatchedInt->getBeginLoc(),
-         "error-prone literal: integer literal has leading zeroes");
+         "non-portable integer literal: integer literal with leading zeroes");
   // Matches only the most significant bit,
   // eg. unsigned value 0x80000000.
-  } else if (IsFullPattern) {
+  } else if (IsMSBBitUsed) {
     diag(MatchedInt->getBeginLoc(),
-         "error-prone literal: should not rely on the most significant bit");
-  // This warning also matches literals like 0x30000000,
-  // for statistics purposes for now.
-  } else if (IsFullPatternAlternate) {
+         "non-portable integer literal: should not rely on the most significant bit");
+  // Matches the most significant byte,
+  // eg. literals like 0x30000000.
+  } else if (IsMSBByteUsed) {
     diag(MatchedInt->getBeginLoc(),
-      "error-prone literal: should not rely on bits of most significant byte");
+         "non-portable integer literal: should not rely on bits of most significant byte");
   }
 }
 

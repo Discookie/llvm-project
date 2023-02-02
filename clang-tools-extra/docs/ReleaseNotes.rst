@@ -182,9 +182,9 @@ New checks
   <https://reviews.llvm.org/D120996>`).
 
 - New :doc:`portability-non-portable-integer-constant
-  <clang-tidy/checks/portability-non-portable-integer-constant>` check.
+  <clang-tidy/checks/portability/non-portable-integer-constant>` check.
 
-  Finds masks that are being used in a non-portable manner.
+  Finds integer literals that are being used in a non-portable manner.
 
 New check aliases
 ^^^^^^^^^^^^^^^^^

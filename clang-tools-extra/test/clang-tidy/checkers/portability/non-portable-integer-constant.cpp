@@ -28,13 +28,14 @@ void regular() {
   180079837;
   0xabbccdd;
 
-  // FIXME: No warnings as long as not all of the value are used
-  0x3fffffff;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
-
-  // FIXME: (only 31 bits) shouldn't be reported, but it's recognized as MaxSigned Int
+  // FIXME: (only 31 bits) False positive, reported as max signed int
   0b1111111111111111111111111111111;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
+
+  // FIXME: Large numbers represented as hex are the most common false positive,
+  // eg. the following literal is a 64-bit prime.
+  0xff51afd7ed558ccd;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on the most significant bit [portability-non-portable-integer-constant]
 }
 
 // INT_MIN, INT_MAX, UINT_MAX, UINT_MAX-1
@@ -42,140 +43,157 @@ void regular() {
 void limits_int() {
   // FIXME: not recognize as Min
   -214748'3'648;
-  // --CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // --CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   -0x80'00'00'00;
-  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   -020000000000;
-  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   -0b10000000000000000000000000000000;
-  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
 
 
   21474'83647;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0x7FFFFFFF;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   017777777777;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   429'4'96'7295u;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0xFFFFFFFF;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   037777777777;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0B11111111111111111111111111111111;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   4294967294;  // recognized as long ( Not UINT_MAX-1)
-  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0XFFFFFFFE;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   037777777776;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0B11111111111111111111111111111110;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 }
 
 // LLONG_MIN, LLONG_MAX, ULLONG_MAX, ULLONG_MAX-1
 // Most binary literals are 64 bits long
 void limits_llong() {
   -9'22337203'6854775808LL;
-  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   0x8000000000000000;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   01000000000000000000000;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   0b1000000000000000000000000000000000000000000000000000000000000000;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
 
   9223372036854775807;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0x7FFFFFFFFFFFFFFF;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0777777777777777777777;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   // 63 bits
   0b111111111111111111111111111111111111111111111111111111111111111;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   18446744073709551615llU;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0xFFFFFFFFFFFFFFFF;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   01777777777777777777777;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0b1111111111111111111111111111111111111111111111111111111111111111;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   18446744073709551614llU;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0xFFFFFFFFFFFFFFFe;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   01777777777777777777776;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
   0b1111111111111111111111111111111111111111111111111111111111111110;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 }
 
 void full_patterns() {
   0x7F'FF'FF'FF;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
   -0x80'00'00'00;
-  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
   0xFFFFFFFFu;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
   0xFF'FF'FF'Fe;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
 
   0x7F'FF'FFFFFFFFFFFF;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
   -0x80'0000000000000'0LL;
-  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:4: warning: non-portable integer literal: hardcoded platform-specific minimum value [portability-non-portable-integer-constant]
   0XFFffFFFffFFFFFFFllU;
-  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
+}
+
+void most_significant_bits() {
+  0x80004000;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on the most significant bit [portability-non-portable-integer-constant]
+
+  0xAFFFFFFF;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on the most significant bit [portability-non-portable-integer-constant]
+
+  0x10000000;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on bits of most significant byte [portability-non-portable-integer-constant]
+
+  0x3000200010004000;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on bits of most significant byte [portability-non-portable-integer-constant]
+
+  0x00001000;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: integer literal with leading zeroes [portability-non-portable-integer-constant]
 }
 
 template <int I> bool template_unused_reported() { return I < 0x7FFFFFFF; }
-// CHECK-MESSAGES: :[[@LINE-1]]:63: warning: error-prone literal
+// CHECK-MESSAGES: :[[@LINE-1]]:63: warning: non-portable integer literal
 
 template <int I> bool template_arg_not_reported() { return I < 0x7FFFFFFF; }
-// CHECK-MESSAGES: :[[@LINE-1]]:64: warning: error-prone literal
-// CHECK-MESSAGES-NOT: :[[@LINE-2]]:60: warning: error-prone literal
+// CHECK-MESSAGES: :[[@LINE-1]]:64: warning: non-portable integer literal
+// CHECK-MESSAGES-NOT: :[[@LINE-2]]:60: warning: non-portable integer literal
 
 template <int I = 0x7FFFFFFF > bool template_default_reported() { return I < 0; }
-// CHECK-MESSAGES: :[[@LINE-1]]:19: warning: error-prone literal
-// CHECK-MESSAGES-NOT: :[[@LINE-2]]:74: warning: error-prone literal
+// CHECK-MESSAGES: :[[@LINE-1]]:19: warning: non-portable integer literal
+// CHECK-MESSAGES-NOT: :[[@LINE-2]]:74: warning: non-portable integer literal
 
 void templates() {
   // only at the callsite
   template_arg_not_reported<0x7FFFFFFF>();
-  // CHECK-MESSAGES: :[[@LINE-1]]:29: warning: error-prone literal
+  // CHECK-MESSAGES: :[[@LINE-1]]:29: warning: non-portable integer literal
 
   template_default_reported();
 
@@ -187,17 +205,33 @@ void templates() {
 void macros() {
 #define FULL_LITERAL 0x0100000000000000
   FULL_LITERAL;
-  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
   // --CHECK-MESSAGES: :[[@LINE-3]]:22: note: expanded from macro
 
 #define PARTIAL_LITERAL(start) start##00000000
   PARTIAL_LITERAL(0x01000000);
-  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
   // --CHECK-MESSAGES: :[[@LINE-3]]:32: note: expanded from macro
 
   // FIXME: In this case, the integer literal token is 0 long due to a tokenizer issue.
 #define EMPTY_ARGUMENT(start) start##0x0100000000000000
   EMPTY_ARGUMENT();
-  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: error-prone literal
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
+  // --CHECK-MESSAGES: :[[@LINE-3]]:38: note: expanded from macro
+
+  // The following literals could be detected without reading the text representation.
+#define MAX_VALUE_LITERAL 0x7FFFFFFF
+  MAX_VALUE_LITERAL;
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
+  // --CHECK-MESSAGES: :[[@LINE-3]]:22: note: expanded from macro
+
+#define MAX_VALUE_PARTIAL_LITERAL(start) start##FFFF
+  MAX_VALUE_PARTIAL_LITERAL(0x7FFF);
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
+  // --CHECK-MESSAGES: :[[@LINE-3]]:32: note: expanded from macro
+
+#define MAX_VALUE_EMPTY_ARGUMENT(start) start##FFFF
+  MAX_VALUE_PARTIAL_LITERAL(0x7FFF);
+  // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
   // --CHECK-MESSAGES: :[[@LINE-3]]:38: note: expanded from macro
 }

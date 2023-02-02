@@ -8,27 +8,33 @@ portability-non-portable-integer-constant
 Finds integer literals that might have different bit-widths on different platforms.
 
 Currently the check detects cases where maximum or minimum values should be used
-instead, as well as error-prone integer literals where all bits are defined.
+instead, as well as error-prone integer literals having leading zeroes, or
+relying on the most significant bits.
 
 This check corresponds to CERT C Coding Standard rule `INT17-C. Define integer 
 constants in an implementation-independent manner
 <https://wiki.sei.cmu.edu/confluence/display/c/INT17-C.+Define+integer+constants+in+an+implementation-independent+manner>`_.
 
 .. code-block:: c
-
-    const unsigned long mask = 0xFFFFFFFF; // warn
-    // the right way to write this would be ULONG_MAX, or -1
     
-    unsigned long flipbits(unsigned long x) {
-      return x ^ mask;
+    unsigned long flip_bits(unsigned long x) {
+      return x ^ 0xFFFFFFFF;
+      // The right way to write this would be ULONG_MAX, or -1.
     }
 
 .. code-block:: c++
 
-    const unsigned long mask = 0B1000'0000'0000'0000'0000'0000'0000'0000; // warn
-    // a correct way to write this would be ~(ULONG_MAX >> 1)
+    const unsigned long mask = 0b1000'0000'0000'0000'0000'0000'0000'0000; // warn
+    // The right way to write this would be ~(ULONG_MAX >> 1).
     unsigned long x;
 
-    /* Initialize x */
+    x &= mask;
 
-    x |= mask;
+.. code-block:: c++
+
+    const unsigned long bit_to_set = 0x00010000; // warn
+    // Incorrectly assumes that long is 4 bytes.
+
+    unsigned long set_bit(unsigned long x) {
+      return x | bit_to_set;
+    }
