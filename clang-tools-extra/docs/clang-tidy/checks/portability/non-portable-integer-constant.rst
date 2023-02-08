@@ -5,7 +5,7 @@ portability-non-portable-integer-constant
 
 `cert-int17-c` redirects here as an alias for this check.
 
-Finds integer literals that might have different bit-widths on different platforms.
+Finds integer literals that are being used in a non-portable manner.
 
 Currently the check detects cases where maximum or minimum values should be used
 instead, as well as error-prone integer literals having leading zeroes, or

@@ -1,5 +1,7 @@
 // RUN: %check_clang_tidy %s -std=c++17-or-later portability-non-portable-integer-constant %t
 
+using int32_t = decltype(42);
+
 void regular() {
   // no-warnings
   0;
@@ -28,7 +30,7 @@ void regular() {
   180079837;
   0xabbccdd;
 
-  // FIXME: (only 31 bits) False positive, reported as max signed int
+  // FIXME: (only 31 bits) False positive, reported as max signed int.
   0b1111111111111111111111111111111;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 
@@ -36,6 +38,10 @@ void regular() {
   // eg. the following literal is a 64-bit prime.
   0xff51afd7ed558ccd;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on the most significant bit [portability-non-portable-integer-constant]
+
+  // FIXME: Fixed-size integer literals are a common false positive as well.
+  int32_t literal = 0x40000000;
+  // CHECK-MESSAGES: :[[@LINE-1]]:21: warning: non-portable integer literal: should not rely on bits of most significant byte [portability-non-portable-integer-constant]
 }
 
 // INT_MIN, INT_MAX, UINT_MAX, UINT_MAX-1
@@ -191,13 +197,13 @@ template <int I = 0x7FFFFFFF > bool template_default_reported() { return I < 0; 
 // CHECK-MESSAGES-NOT: :[[@LINE-2]]:74: warning: non-portable integer literal
 
 void templates() {
-  // only at the callsite
+  // Should be reported only at the callsite.
   template_arg_not_reported<0x7FFFFFFF>();
   // CHECK-MESSAGES: :[[@LINE-1]]:29: warning: non-portable integer literal
 
   template_default_reported();
 
-  // do not report twice
+  // Do not report same literal twice.
   template_default_reported<0>();
 }
 
@@ -230,8 +236,8 @@ void macros() {
   // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
   // --CHECK-MESSAGES: :[[@LINE-3]]:32: note: expanded from macro
 
-#define MAX_VALUE_EMPTY_ARGUMENT(start) start##FFFF
-  MAX_VALUE_PARTIAL_LITERAL(0x7FFF);
+#define MAX_VALUE_EMPTY_ARGUMENT(start) start##0x7FFFFFFF
+  MAX_VALUE_EMPTY_ARGUMENT();
   // --CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal
   // --CHECK-MESSAGES: :[[@LINE-3]]:38: note: expanded from macro
 }

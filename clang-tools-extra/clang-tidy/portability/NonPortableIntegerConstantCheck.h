@@ -11,11 +11,9 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang {
-namespace tidy {
-namespace portability {
+namespace clang::tidy::portability {
 
-/// Finds integer literals that are being used in a non-portable manner
+/// Finds integer literals that are being used in a non-portable manner.
 ///
 /// For the user-facing documentation see:
 /// http://clang.llvm.org/extra/clang-tidy/checks/portability/non-portable-integer-constant.html
@@ -27,8 +25,6 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 };
 
-} // namespace portability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::portability
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_PORTABILITY_NON_PORTABLE_INTEGER_CONSTANT_CHECK_H

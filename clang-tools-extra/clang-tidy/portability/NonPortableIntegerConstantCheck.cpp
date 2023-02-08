@@ -14,21 +14,20 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace portability {
+namespace clang::tidy::portability {
 namespace {
 
 struct SanitizedLiteralType {
   StringRef StrippedLiteral;
-  // The exact bit value of the MSB
+  // The exact bit value of the MSB.
   std::size_t MSBBit;
   // The bit value of MSB rounded up to the nearest byte.
   std::size_t MSBByte;
   std::size_t Radix;
 };
 
-// Stripped literal, MSB position, radix of literal
+} // namespace
+
 // Does not calculate true MSB - only takes the value of the first digit into
 // account alongside the total digit count. Returns MSB zero if radix is 10.
 static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
@@ -82,8 +81,6 @@ static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
     return { StrippedLiteral, 0, 0, 10 };
   }
 }
-
-} // namespace
 
 void NonPortableIntegerConstantCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(integerLiteral().bind("integer"), this);
@@ -160,6 +157,4 @@ void NonPortableIntegerConstantCheck::check(
   }
 }
 
-} // namespace portability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::portability
