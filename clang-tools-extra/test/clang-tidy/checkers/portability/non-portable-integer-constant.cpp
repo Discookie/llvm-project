@@ -42,7 +42,17 @@ void regular() {
   // FIXME: Fixed-size integer literals are a common false positive as well.
   int32_t literal = 0x40000000;
   // CHECK-MESSAGES: :[[@LINE-1]]:21: warning: non-portable integer literal: should not rely on bits of most significant byte [portability-non-portable-integer-constant]
+
+  // FIXME: According to the standard, the type of the integer literal is the
+  // smallest type it can fit into. While technically a false positive, it could
+  // signal literal width confusion regardless.
+  long long int long_literal = 0x7fffffff;
+  // CHECK-MESSAGES: :[[@LINE-1]]:32: warning: non-portable integer literal: hardcoded platform-specific maximum value [portability-non-portable-integer-constant]
 }
+
+enum LiteralClamp {
+
+};
 
 // INT_MIN, INT_MAX, UINT_MAX, UINT_MAX-1
 // All binary literals are 32 bits long
@@ -182,6 +192,11 @@ void most_significant_bits() {
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: should not rely on bits of most significant byte [portability-non-portable-integer-constant]
 
   0x00001000;
+  // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: integer literal with leading zeroes [portability-non-portable-integer-constant]
+
+  // In some cases, an integer literal represents a smaller type than its
+  // bitcount, which caused issues with MSBBit detection.
+  0x0000000000000001;
   // CHECK-MESSAGES: :[[@LINE-1]]:3: warning: non-portable integer literal: integer literal with leading zeroes [portability-non-portable-integer-constant]
 }
 

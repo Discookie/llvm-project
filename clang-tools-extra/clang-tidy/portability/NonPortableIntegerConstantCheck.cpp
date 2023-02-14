@@ -29,22 +29,26 @@ struct SanitizedLiteralType {
 } // namespace
 
 // Does not calculate true MSB - only takes the value of the first digit into
-// account alongside the total digit count. Returns MSB zero if radix is 10.
+// account alongside the total digit count. Returns MSB zero if radix is 10, and
+// MSBBit zero if first digit is 0.
 static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
   llvm::erase_value(IntegerLiteral, '\''); // Skip digit separators.
   StringRef StrippedLiteral{IntegerLiteral};
 
-  const auto DigitMSB = [](char digit) {
-    if (digit == '0') {
+  const auto MSBBit = [&StrippedLiteral](std::size_t RemainingBitCount)
+                        -> std::size_t {
+    char FirstDigit = StrippedLiteral.front();
+
+    if (FirstDigit == '0') {
       return 0;
-    } else if (digit <= '1') {
-      return 1;
-    } else if (digit <= '3') {
-      return 2;
-    } else if (digit <= '7') {
-      return 3;
+    } else if (FirstDigit <= '1') {
+      return RemainingBitCount + 1;
+    } else if (FirstDigit <= '3') {
+      return RemainingBitCount + 2;
+    } else if (FirstDigit <= '7') {
+      return RemainingBitCount + 3;
     } else {
-      return 4;
+      return RemainingBitCount + 4;
     }
   };
 
@@ -52,8 +56,10 @@ static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
   {
     StrippedLiteral = StrippedLiteral.take_while(
       [](char c){return c == '0' || c == '1'; });
+    assert(!StrippedLiteral.empty());
+
     return { StrippedLiteral,
-        StrippedLiteral.size(), 
+        MSBBit(StrippedLiteral.size() - 1), 
         StrippedLiteral.size(), 
         2 };
   }
@@ -63,7 +69,7 @@ static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
     assert(!StrippedLiteral.empty());
 
     return { StrippedLiteral,
-      (StrippedLiteral.size() - 1) * 4 + DigitMSB(StrippedLiteral.front()),
+      MSBBit((StrippedLiteral.size() - 1) * 4),
       StrippedLiteral.size() * 4,
       16 };
   }
@@ -74,7 +80,7 @@ static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
     assert(!StrippedLiteral.empty());
 
     return { StrippedLiteral,
-        (StrippedLiteral.size() - 1) * 3 + DigitMSB(StrippedLiteral.front()),
+        MSBBit((StrippedLiteral.size() - 1) * 3),
         StrippedLiteral.size() * 3,
         8 };
   } else {
