@@ -542,6 +542,11 @@ def MismatchedDeallocatorChecker : Checker<"MismatchedDeallocator">,
   Dependencies<[DynamicMemoryModeling]>,
   Documentation<HasDocumentation>;
 
+def MismatchedClassArraysChecker : Checker<"MismatchedClassArrays">,
+  HelpText<"Check for arrays freed as the wrong type.">,
+  Dependencies<[DynamicMemoryModeling]>,
+  Documentation<HasDocumentation>;
+
 def VforkChecker : Checker<"Vfork">,
   HelpText<"Check for proper usage of vfork">,
   Documentation<HasDocumentation>;

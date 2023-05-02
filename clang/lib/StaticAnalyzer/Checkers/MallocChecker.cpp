@@ -322,6 +322,7 @@ public:
     CK_NewDeleteLeaksChecker,
     CK_MismatchedDeallocatorChecker,
     CK_InnerPointerChecker,
+    CK_MismatchedClassArraysChecker,
     CK_NumCheckKinds
   };
 
@@ -364,6 +365,7 @@ private:
   mutable std::unique_ptr<BugType> BT_FreeAlloca[CK_NumCheckKinds];
   mutable std::unique_ptr<BugType> BT_MismatchedDealloc;
   mutable std::unique_ptr<BugType> BT_OffsetFree[CK_NumCheckKinds];
+  mutable std::unique_ptr<BugType> BT_MismatchedClassArrays;
   mutable std::unique_ptr<BugType> BT_UseZerroAllocated[CK_NumCheckKinds];
 
 #define CHECK_FN(NAME)                                                         \
@@ -696,6 +698,10 @@ private:
   void HandleOffsetFree(CheckerContext &C, SVal ArgVal, SourceRange Range,
                         const Expr *DeallocExpr, AllocationFamily Family,
                         const Expr *AllocExpr = nullptr) const;
+
+  void HandleMismatchedClassArrays(CheckerContext &C, SourceRange Range,
+                                   const Expr *DeallocExpr, const RefState *RS,
+                                   SymbolRef Sym) const;
 
   void HandleUseAfterFree(CheckerContext &C, SourceRange Range,
                           SymbolRef Sym) const;
@@ -2024,6 +2030,32 @@ ProgramStateRef MallocChecker::FreeMemAux(
                          Family, AllocExpr);
         return nullptr;
       }
+
+      // For arrays of classes, check if the type of the deallocated object
+      // matches that of the allocated object.
+      if (Family == AF_CXXNewArray) {
+        llvm::errs() << "Checking types against each other:\n";
+        const PointerType *RegionType = cast_or_null<PointerType>(SymBase->getType().getTypePtrOrNull());
+        const CXXRecordDecl *RegionDecl = !RegionType ? nullptr : RegionType->getPointeeCXXRecordDecl();
+
+        const PointerType *DeallocatedType = cast_or_null<PointerType>(ArgExpr->getType().getTypePtrOrNull());
+        const CXXRecordDecl *DeallocatedDecl = !DeallocatedType ? nullptr : DeallocatedType->getPointeeCXXRecordDecl();
+
+        llvm::errs() << "RegionType: "; RegionType ? RegionType->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
+        llvm::errs() << "DeallocatedType: "; DeallocatedType ? DeallocatedType->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
+        llvm::errs() << "Base region: "; RegionType ? RegionType->getPointeeCXXRecordDecl()->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
+        llvm::errs() << "Base dealloc: "; DeallocatedType ? DeallocatedType->getPointeeCXXRecordDecl()->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
+
+        if (RegionDecl && DeallocatedDecl &&
+            !RegionDecl->forallBases([&DeallocatedDecl](const CXXRecordDecl *BaseDecl) {
+                llvm::errs() << "Base is"; BaseDecl->dump();
+                return BaseDecl != DeallocatedDecl;
+              })) {
+          HandleMismatchedClassArrays(C, ArgExpr->getSourceRange(), ParentExpr,
+                                      RsBase, SymBase);
+        };
+
+      }
     }
   }
 
@@ -2387,6 +2419,44 @@ void MallocChecker::HandleOffsetFree(CheckerContext &C, SVal ArgVal,
   R->markInteresting(MR->getBaseRegion());
   R->addRange(Range);
   C.emitReport(std::move(R));
+}
+
+void MallocChecker::HandleMismatchedClassArrays(CheckerContext &C,
+                                            SourceRange Range,
+                                            const Expr *DeallocExpr,
+                                            const RefState *RS, SymbolRef Sym) const {
+  if (!ChecksEnabled[CK_MismatchedClassArraysChecker]) {
+    C.addSink();
+    return;
+  }
+
+  if (ExplodedNode *N = C.generateErrorNode()) {
+    if (!BT_MismatchedClassArrays)
+      BT_MismatchedClassArrays.reset(
+          new BugType(CheckNames[CK_MismatchedClassArraysChecker],
+                      "Mismatched class array free", categories::MemoryError));
+
+    SmallString<100> buf;
+    llvm::raw_svector_ostream os(buf);
+
+    const Expr *AllocExpr = cast<Expr>(RS->getStmt());
+    SmallString<20> AllocBuf;
+    llvm::raw_svector_ostream AllocOs(AllocBuf);
+    SmallString<20> DeallocBuf;
+    llvm::raw_svector_ostream DeallocOs(DeallocBuf);
+
+    os << "Array of class";
+
+    os << " should not be deallocated as its base type ";
+    // FIXME: Print class names
+
+    auto R = std::make_unique<PathSensitiveBugReport>(*BT_MismatchedClassArrays,
+                                                      os.str(), N);
+    R->markInteresting(Sym);
+    R->addRange(Range);
+    R->addVisitor<MallocBugVisitor>(Sym);
+    C.emitReport(std::move(R));
+  }
 }
 
 void MallocChecker::HandleUseAfterFree(CheckerContext &C, SourceRange Range,
@@ -3627,3 +3697,4 @@ REGISTER_CHECKER(MallocChecker)
 REGISTER_CHECKER(NewDeleteChecker)
 REGISTER_CHECKER(NewDeleteLeaksChecker)
 REGISTER_CHECKER(MismatchedDeallocatorChecker)
+REGISTER_CHECKER(MismatchedClassArraysChecker)
