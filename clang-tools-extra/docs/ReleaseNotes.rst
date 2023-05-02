@@ -133,13 +133,13 @@ New checks
   Checks that all implicit and explicit inline functions in header files are
   tagged with the ``LIBC_INLINE`` macro.
 
-- New :doc:`portability-non-portable-integer-constant
-  <clang-tidy/checks/portability-non-portable-integer-constant>` check.
+- New :doc:`portability-integer-constant
+  <clang-tidy/checks/portability-integer-constant>` check.
 
   Finds masks that are being used in a non-portable manner.
 
-- New :doc:`portability-non-portable-integer-constant
-  <clang-tidy/checks/portability/non-portable-integer-constant>` check.
+- New :doc:`portability-integer-constant
+  <clang-tidy/checks/portability/integer-constant>` check.
 
   Finds integer literals that are being used in a non-portable manner.
 

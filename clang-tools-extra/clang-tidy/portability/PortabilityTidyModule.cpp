@@ -9,7 +9,7 @@
 #include "../ClangTidy.h"
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
-#include "NonPortableIntegerConstantCheck.h"
+#include "IntegerConstantCheck.h"
 #include "RestrictSystemIncludesCheck.h"
 #include "SIMDIntrinsicsCheck.h"
 #include "StdAllocatorConstCheck.h"
@@ -20,8 +20,8 @@ namespace portability {
 class PortabilityModule : public ClangTidyModule {
 public:
   void addCheckFactories(ClangTidyCheckFactories &CheckFactories) override {
-    CheckFactories.registerCheck<NonPortableIntegerConstantCheck>(
-        "portability-non-portable-integer-constant");
+    CheckFactories.registerCheck<IntegerConstantCheck>(
+        "portability-integer-constant");
     CheckFactories.registerCheck<RestrictSystemIncludesCheck>(
         "portability-restrict-system-includes");
     CheckFactories.registerCheck<SIMDIntrinsicsCheck>(

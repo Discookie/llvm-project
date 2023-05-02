@@ -328,7 +328,7 @@ Clang-Tidy Checks
    `performance-type-promotion-in-math-fn <performance/type-promotion-in-math-fn.html>`_, "Yes"
    `performance-unnecessary-copy-initialization <performance/unnecessary-copy-initialization.html>`_, "Yes"
    `performance-unnecessary-value-param <performance/unnecessary-value-param.html>`_, "Yes"
-   `portability-non-portable-integer-constant <portability/non-portable-integer-constant.html>`_,
+   `portability-integer-constant <portability/integer-constant.html>`_,
    `portability-restrict-system-includes <portability/restrict-system-includes.html>`_, "Yes"
    `portability-simd-intrinsics <portability/simd-intrinsics.html>`_,
    `portability-std-allocator-const <portability/std-allocator-const.html>`_,

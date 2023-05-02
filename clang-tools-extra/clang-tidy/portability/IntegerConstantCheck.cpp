@@ -1,4 +1,4 @@
-//===--- NonPortableIntegerConstantCheck.cpp - clang-tidy -----------------===//
+//===--- IntegerConstantCheck.cpp - clang-tidy ----------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "NonPortableIntegerConstantCheck.h"
+#include "IntegerConstantCheck.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
@@ -88,19 +88,18 @@ static SanitizedLiteralType sanitizeAndCountBits(std::string &IntegerLiteral) {
   }
 }
 
-void NonPortableIntegerConstantCheck::registerMatchers(MatchFinder *Finder) {
+void IntegerConstantCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(integerLiteral().bind("integer"), this);
 }
 
-
-void NonPortableIntegerConstantCheck::check(
+void IntegerConstantCheck::check(
     const MatchFinder::MatchResult &Result) {
   const auto *MatchedInt = Result.Nodes.getNodeAs<IntegerLiteral>("integer");
 
   assert(MatchedInt);
 
   QualType IntegerLiteralType = MatchedInt->getType();
-  auto LiteralBitWidth = Result.Context->getTypeSize( IntegerLiteralType );
+  uint64_t LiteralBitWidth = Result.Context->getTypeSize( IntegerLiteralType );
 
   llvm::APInt LiteralValue = MatchedInt->getValue();
 

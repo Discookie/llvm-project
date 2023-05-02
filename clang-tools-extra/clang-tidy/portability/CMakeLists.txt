@@ -5,7 +5,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_library(clangTidyPortabilityModule
-  NonPortableIntegerConstantCheck.cpp
+  IntegerConstantCheck.cpp
   PortabilityTidyModule.cpp
   RestrictSystemIncludesCheck.cpp
   SIMDIntrinsicsCheck.cpp
