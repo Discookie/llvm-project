@@ -542,11 +542,6 @@ def MismatchedDeallocatorChecker : Checker<"MismatchedDeallocator">,
   Dependencies<[DynamicMemoryModeling]>,
   Documentation<HasDocumentation>;
 
-def MismatchedClassArraysChecker : Checker<"MismatchedClassArrays">,
-  HelpText<"Check for arrays freed as the wrong type.">,
-  Dependencies<[DynamicMemoryModeling]>,
-  Documentation<HasDocumentation>;
-
 def VforkChecker : Checker<"Vfork">,
   HelpText<"Check for proper usage of vfork">,
   Documentation<HasDocumentation>;
@@ -554,6 +549,11 @@ def VforkChecker : Checker<"Vfork">,
 } // end "unix"
 
 let ParentPackage = UnixAlpha in {
+
+def MismatchedClassArraysChecker : Checker<"MismatchedClassArraysProto">,
+  HelpText<"Check for arrays freed as the wrong type. (Prototype.)">,
+  Dependencies<[DynamicMemoryModeling]>,
+  Documentation<HasDocumentation>;
 
 def ErrnoChecker : Checker<"Errno">,
   HelpText<"Check for improper use of 'errno'">,
@@ -687,6 +687,11 @@ def PureVirtualCallChecker : Checker<"PureVirtualCall">,
 } // end: "cplusplus"
 
 let ParentPackage = CplusplusOptIn in {
+
+def CXXArrayDeleteChecker : Checker<"ArrayDelete">,
+  HelpText<"Check for arrays freed as the wrong type.">,
+  Dependencies<[DynamicMemoryModeling]>,
+  Documentation<NotDocumented>;
 
 def UninitializedObjectChecker: Checker<"UninitializedObject">,
   HelpText<"Reports uninitialized fields after object construction">,

@@ -701,7 +701,9 @@ private:
 
   void HandleMismatchedClassArrays(CheckerContext &C, SourceRange Range,
                                    const Expr *DeallocExpr, const RefState *RS,
-                                   SymbolRef Sym) const;
+                                   SymbolRef Sym,
+                                   const CXXRecordDecl &RegionDecl,
+                                   const CXXRecordDecl &DeallocatedDecl) const;
 
   void HandleUseAfterFree(CheckerContext &C, SourceRange Range,
                           SymbolRef Sym) const;
@@ -2035,16 +2037,16 @@ ProgramStateRef MallocChecker::FreeMemAux(
       // matches that of the allocated object.
       if (Family == AF_CXXNewArray) {
         llvm::errs() << "Checking types against each other:\n";
-        const PointerType *RegionType = cast_or_null<PointerType>(SymBase->getType().getTypePtrOrNull());
+        const PointerType *RegionType = dyn_cast_or_null<PointerType>(SymBase->getType().getTypePtrOrNull());
         const CXXRecordDecl *RegionDecl = !RegionType ? nullptr : RegionType->getPointeeCXXRecordDecl();
 
-        const PointerType *DeallocatedType = cast_or_null<PointerType>(ArgExpr->getType().getTypePtrOrNull());
+        const PointerType *DeallocatedType = dyn_cast_or_null<PointerType>(ArgExpr->getType().getTypePtrOrNull());
         const CXXRecordDecl *DeallocatedDecl = !DeallocatedType ? nullptr : DeallocatedType->getPointeeCXXRecordDecl();
 
         llvm::errs() << "RegionType: "; RegionType ? RegionType->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
         llvm::errs() << "DeallocatedType: "; DeallocatedType ? DeallocatedType->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
-        llvm::errs() << "Base region: "; RegionType ? RegionType->getPointeeCXXRecordDecl()->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
-        llvm::errs() << "Base dealloc: "; DeallocatedType ? DeallocatedType->getPointeeCXXRecordDecl()->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
+        // llvm::errs() << "Base region: "; RegionType ? RegionType->getPointeeCXXRecordDecl()->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
+        // llvm::errs() << "Base dealloc: "; DeallocatedType ? DeallocatedType->getPointeeCXXRecordDecl()->dump() : (void)(llvm::errs() << "nullptr"); llvm::errs() << "\n";
 
         if (RegionDecl && DeallocatedDecl &&
             !RegionDecl->forallBases([&DeallocatedDecl](const CXXRecordDecl *BaseDecl) {
@@ -2052,7 +2054,7 @@ ProgramStateRef MallocChecker::FreeMemAux(
                 return BaseDecl != DeallocatedDecl;
               })) {
           HandleMismatchedClassArrays(C, ArgExpr->getSourceRange(), ParentExpr,
-                                      RsBase, SymBase);
+                                      RsBase, SymBase, *RegionDecl, *DeallocatedDecl);
         };
 
       }
@@ -2424,7 +2426,9 @@ void MallocChecker::HandleOffsetFree(CheckerContext &C, SVal ArgVal,
 void MallocChecker::HandleMismatchedClassArrays(CheckerContext &C,
                                             SourceRange Range,
                                             const Expr *DeallocExpr,
-                                            const RefState *RS, SymbolRef Sym) const {
+                                            const RefState *RS, SymbolRef Sym,
+                                            const CXXRecordDecl &RegionDecl,
+                                            const CXXRecordDecl &DeallocatedDecl) const {
   if (!ChecksEnabled[CK_MismatchedClassArraysChecker]) {
     C.addSink();
     return;
@@ -2439,16 +2443,21 @@ void MallocChecker::HandleMismatchedClassArrays(CheckerContext &C,
     SmallString<100> buf;
     llvm::raw_svector_ostream os(buf);
 
-    const Expr *AllocExpr = cast<Expr>(RS->getStmt());
+    // const Expr *AllocExpr = cast<Expr>(RS->getStmt());
     SmallString<20> AllocBuf;
     llvm::raw_svector_ostream AllocOs(AllocBuf);
     SmallString<20> DeallocBuf;
     llvm::raw_svector_ostream DeallocOs(DeallocBuf);
 
-    os << "Array of class";
+    PrintingPolicy Policy = PrintingPolicy(C.getLangOpts());
 
-    os << " should not be deallocated as its base type ";
-    // FIXME: Print class names
+    os << "Array of derived type ";
+
+    RegionDecl.getNameForDiagnostic(os, Policy, true);
+
+    os << " should not be deallocated under its base type ";
+    
+    DeallocatedDecl.getNameForDiagnostic(os, Policy, true);
 
     auto R = std::make_unique<PathSensitiveBugReport>(*BT_MismatchedClassArrays,
                                                       os.str(), N);
