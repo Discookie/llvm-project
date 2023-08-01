@@ -1,24 +1,11 @@
-//===-- DeleteWithNonVirtualDtorChecker.cpp -----------------------*- C++ -*--//
+//=== CXXDeleteChecker.cpp -------------------------------------*- C++ -*--===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// Defines a checker for the OOP52-CPP CERT rule: Do not delete a polymorphic
-// object without a virtual destructor.
-//
-// Diagnostic flags -Wnon-virtual-dtor and -Wdelete-non-virtual-dtor report if
-// an object with a virtual function but a non-virtual destructor exists or is
-// deleted, respectively.
-//
-// This check exceeds them by comparing the dynamic and static types of the
-// object at the point of destruction and only warns if it happens through a
-// pointer to a base type without a virtual destructor. The check places a note
-// at the last point where the conversion from derived to base happened.
-//
-//===----------------------------------------------------------------------===//
+// 
 
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
@@ -34,9 +21,10 @@ using namespace clang;
 using namespace ento;
 
 namespace {
-class DeleteWithNonVirtualDtorChecker
+class CXXDeleteChecker
     : public Checker<check::PreStmt<CXXDeleteExpr>> {
-  mutable std::unique_ptr<BugType> BT;
+  mutable std::unique_ptr<BugType> ArrayBT;
+  mutable std::unique_ptr<BugType> NonVirtualBT;
 
   class DeleteBugVisitor : public BugReporterVisitor {
   public:
@@ -54,15 +42,23 @@ class DeleteWithNonVirtualDtorChecker
   };
 
 public:
+  bool ArrayDeleteEnabled = false;
+  bool NonVirtualDeleteEnabled = false;
+
   void checkPreStmt(const CXXDeleteExpr *DE, CheckerContext &C) const;
 };
 } // end anonymous namespace
 
-void DeleteWithNonVirtualDtorChecker::checkPreStmt(const CXXDeleteExpr *DE,
+void CXXDeleteChecker::checkPreStmt(const CXXDeleteExpr *DE,
                                                    CheckerContext &C) const {
   const Expr *DeletedObj = DE->getArgument();
   const MemRegion *MR = C.getSVal(DeletedObj).getAsRegion();
   if (!MR)
+    return;
+
+  OverloadedOperatorKind DeleteKind = DE->getOperatorDelete()->getOverloadedOperator();
+
+  if (DeleteKind != OO_Delete && DeleteKind != OO_Array_Delete)
     return;
 
   const auto *BaseClassRegion = MR->getAs<TypedValueRegion>();
@@ -79,31 +75,50 @@ void DeleteWithNonVirtualDtorChecker::checkPreStmt(const CXXDeleteExpr *DE,
   if (!BaseClass->hasDefinition() || !DerivedClass->hasDefinition())
     return;
 
-  if (BaseClass->getDestructor()->isVirtual())
-    return;
-
   if (!DerivedClass->isDerivedFrom(BaseClass))
     return;
 
-  if (!BT)
-    BT.reset(new BugType(this,
+  if (DeleteKind != OO_Array_Delete && DeleteKind != OO_Delete)
+    return;
+
+  if (ArrayDeleteEnabled && DeleteKind == OO_Array_Delete) {
+    if (!ArrayBT)
+      ArrayBT.reset(new BugType(this,
+                           "Deleting an array of polymorphic objects is undefined",
+                           "Logic error"));
+
+    ExplodedNode *N = C.generateNonFatalErrorNode();
+    if (!N)
+      return;
+    auto R = std::make_unique<PathSensitiveBugReport>(*ArrayBT, ArrayBT->getDescription(), N);
+
+    // Mark region of problematic base class for later use in the BugVisitor.
+    R->markInteresting(BaseClassRegion);
+    R->addVisitor(std::make_unique<DeleteBugVisitor>());
+    C.emitReport(std::move(R));
+  }
+
+  if (NonVirtualDeleteEnabled && BaseClass->getDestructor()->isVirtual()) {
+    if (!NonVirtualBT)
+      NonVirtualBT.reset(new BugType(this,
                          "Destruction of a polymorphic object with no "
                          "virtual destructor",
                          "Logic error"));
 
-  ExplodedNode *N = C.generateNonFatalErrorNode();
-  if (!N)
-    return;
-  auto R = std::make_unique<PathSensitiveBugReport>(*BT, BT->getDescription(), N);
+    ExplodedNode *N = C.generateNonFatalErrorNode();
+    if (!N)
+      return;
+    auto R = std::make_unique<PathSensitiveBugReport>(*NonVirtualBT, NonVirtualBT->getDescription(), N);
 
-  // Mark region of problematic base class for later use in the BugVisitor.
-  R->markInteresting(BaseClassRegion);
-  R->addVisitor(std::make_unique<DeleteBugVisitor>());
-  C.emitReport(std::move(R));
+    // Mark region of problematic base class for later use in the BugVisitor.
+    R->markInteresting(BaseClassRegion);
+    R->addVisitor(std::make_unique<DeleteBugVisitor>());
+    C.emitReport(std::move(R));
+  }
 }
 
 PathDiagnosticPieceRef
-DeleteWithNonVirtualDtorChecker::DeleteBugVisitor::VisitNode(
+CXXDeleteChecker::DeleteBugVisitor::VisitNode(
     const ExplodedNode *N, BugReporterContext &BRC,
     PathSensitiveBugReport &BR) {
   // Stop traversal after the first conversion was found on a path.
@@ -145,8 +160,26 @@ DeleteWithNonVirtualDtorChecker::DeleteBugVisitor::VisitNode(
   return std::make_shared<PathDiagnosticEventPiece>(Pos, OS.str(), true);
 }
 
+void ento::registerCXXArrayModeling(CheckerManager &mgr) {
+  mgr.registerChecker<CXXDeleteChecker>();
+}
+
+bool ento::shouldRegisterCXXArrayModeling(const CheckerManager &mgr) {
+  return true;
+}
+
+void ento::registerCXXArrayDeleteChecker(CheckerManager &mgr) {
+  CXXDeleteChecker *checker = mgr.getChecker<CXXDeleteChecker>();
+  checker->ArrayDeleteEnabled = true;
+}
+
+bool ento::shouldRegisterCXXArrayDeleteChecker(const CheckerManager &mgr) {
+  return true;
+}
+
 void ento::registerDeleteWithNonVirtualDtorChecker(CheckerManager &mgr) {
-  mgr.registerChecker<DeleteWithNonVirtualDtorChecker>();
+  CXXDeleteChecker *checker = mgr.getChecker<CXXDeleteChecker>();
+  checker->NonVirtualDeleteEnabled = true;
 }
 
 bool ento::shouldRegisterDeleteWithNonVirtualDtorChecker(

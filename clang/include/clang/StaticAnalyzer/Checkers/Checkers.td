@@ -688,11 +688,6 @@ def PureVirtualCallChecker : Checker<"PureVirtualCall">,
 
 let ParentPackage = CplusplusOptIn in {
 
-def CXXArrayDeleteChecker : Checker<"ArrayDelete">,
-  HelpText<"Check for arrays freed as the wrong type.">,
-  Dependencies<[DynamicMemoryModeling]>,
-  Documentation<NotDocumented>;
-
 def UninitializedObjectChecker: Checker<"UninitializedObject">,
   HelpText<"Reports uninitialized fields after object construction">,
   CheckerOptions<[
@@ -764,9 +759,20 @@ def ContainerModeling : Checker<"ContainerModeling">,
   Documentation<NotDocumented>,
   Hidden;
 
+def CXXArrayModeling: Checker<"CXXArrayModeling">,
+  HelpText<"The base of a few CXX array related checkers.">,
+  Documentation<NotDocumented>,
+  Hidden;
+
+def CXXArrayDeleteChecker : Checker<"ArrayDelete">,
+  HelpText<"Check for arrays freed as the wrong type.">,
+  Dependencies<[CXXArrayModeling]>,
+  Documentation<NotDocumented>;
+
 def DeleteWithNonVirtualDtorChecker : Checker<"DeleteWithNonVirtualDtor">,
   HelpText<"Reports destructions of polymorphic objects with a non-virtual "
            "destructor in their base class">,
+  Dependencies<[CXXArrayModeling]>,
   Documentation<HasDocumentation>;
 
 def EnumCastOutOfRangeChecker : Checker<"EnumCastOutOfRange">,

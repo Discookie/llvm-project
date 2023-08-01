@@ -15,6 +15,11 @@ B *creater() {
   return new B[3];
 }
 
+void standalone_deleter(B *b) {
+  A *a = (A*)b;
+  delete[] a;
+}
+
 int main() {
   B *b = new B[3];
   A *a = (A*) b;
