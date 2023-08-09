@@ -173,6 +173,7 @@ void stackVar() {
   delete &sv2; // no-warning
 }
 
+
 // Deleting a polymorphic object with a non-virtual dtor
 // is not a problem if it is referenced by its precise type.
 

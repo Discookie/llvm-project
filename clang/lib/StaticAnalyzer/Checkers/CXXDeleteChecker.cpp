@@ -42,8 +42,11 @@ class CXXDeleteChecker
   };
 
 public:
+
   bool ArrayDeleteEnabled = false;
+  CheckerNameRef ArrayDeleteName;
   bool NonVirtualDeleteEnabled = false;
+  CheckerNameRef NonVirtualDeleteName;
 
   void checkPreStmt(const CXXDeleteExpr *DE, CheckerContext &C) const;
 };
@@ -83,7 +86,7 @@ void CXXDeleteChecker::checkPreStmt(const CXXDeleteExpr *DE,
 
   if (ArrayDeleteEnabled && DeleteKind == OO_Array_Delete) {
     if (!ArrayBT)
-      ArrayBT.reset(new BugType(this,
+      ArrayBT.reset(new BugType(ArrayDeleteName,
                            "Deleting an array of polymorphic objects is undefined",
                            "Logic error"));
 
@@ -98,9 +101,9 @@ void CXXDeleteChecker::checkPreStmt(const CXXDeleteExpr *DE,
     C.emitReport(std::move(R));
   }
 
-  if (NonVirtualDeleteEnabled && BaseClass->getDestructor()->isVirtual()) {
+  if (NonVirtualDeleteEnabled && !BaseClass->getDestructor()->isVirtual()) {
     if (!NonVirtualBT)
-      NonVirtualBT.reset(new BugType(this,
+      NonVirtualBT.reset(new BugType(NonVirtualDeleteName,
                          "Destruction of a polymorphic object with no "
                          "virtual destructor",
                          "Logic error"));
@@ -171,6 +174,7 @@ bool ento::shouldRegisterCXXArrayModeling(const CheckerManager &mgr) {
 void ento::registerCXXArrayDeleteChecker(CheckerManager &mgr) {
   CXXDeleteChecker *checker = mgr.getChecker<CXXDeleteChecker>();
   checker->ArrayDeleteEnabled = true;
+  checker->ArrayDeleteName = mgr.getCurrentCheckerName();
 }
 
 bool ento::shouldRegisterCXXArrayDeleteChecker(const CheckerManager &mgr) {
@@ -180,6 +184,7 @@ bool ento::shouldRegisterCXXArrayDeleteChecker(const CheckerManager &mgr) {
 void ento::registerDeleteWithNonVirtualDtorChecker(CheckerManager &mgr) {
   CXXDeleteChecker *checker = mgr.getChecker<CXXDeleteChecker>();
   checker->NonVirtualDeleteEnabled = true;
+  checker->NonVirtualDeleteName = mgr.getCurrentCheckerName();
 }
 
 bool ento::shouldRegisterDeleteWithNonVirtualDtorChecker(
