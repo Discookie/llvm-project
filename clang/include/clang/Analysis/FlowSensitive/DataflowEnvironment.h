@@ -264,7 +264,8 @@ public:
   void removeDecl(const ValueDecl &D);
 
   /// Assigns `Loc` as the storage location of the glvalue `E` in the
-  /// environment.
+  /// environment. If `E` is a `DeclRefExpr`, assigns `Loc` as the
+  /// storage location of its corresponding `Decl` as well.
   ///
   /// Requirements:
   ///
@@ -274,7 +275,8 @@ public:
 
   /// Returns the storage location assigned to the glvalue `E` in the
   /// environment, or null if `E` isn't assigned a storage location in the
-  /// environment.
+  /// environment. If `E` is a `DeclRefExpr`, the storage location is the same
+  /// as the storage location of its corresponding `Decl`.
   ///
   /// Requirements:
   ///  `E` must be a glvalue or a `BuiltinType::BuiltinFn`

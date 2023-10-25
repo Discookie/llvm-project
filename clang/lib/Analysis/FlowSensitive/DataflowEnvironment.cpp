@@ -787,12 +787,35 @@ Value *Environment::createValue(QualType Type) {
 void Environment::setStorageLocationInternal(const Expr &E,
                                              StorageLocation &Loc) {
   const Expr &CanonE = ignoreCFGOmittedNodes(E);
+
+  // When we are handling a DeclRefExpr, prefer the storageLocation of the
+  // contained ValueDecl over the Expr itself.
+  if (const auto *RefE = dyn_cast<DeclRefExpr>(&CanonE)) {
+    if (const ValueDecl *D = RefE->getDecl()) {
+      assert(!DeclToLoc.contains(D));
+      DeclToLoc[D] = &Loc;
+
+      return;
+    }
+  }
+
   assert(!ExprToLoc.contains(&CanonE));
   ExprToLoc[&CanonE] = &Loc;
 }
 
 StorageLocation *Environment::getStorageLocationInternal(const Expr &E) const {
-  auto It = ExprToLoc.find(&ignoreCFGOmittedNodes(E));
+  const Expr &CanonE = ignoreCFGOmittedNodes(E);
+
+  // When we are handling a DeclRefExpr, prefer the storageLocation of the
+  // contained ValueDecl over the Expr itself.
+  if (const auto *RefE = dyn_cast<DeclRefExpr>(&CanonE)) {
+    if (const ValueDecl *D = RefE->getDecl()) {
+      auto It = DeclToLoc.find(D);
+      return It == DeclToLoc.end() ? nullptr : &*It->second;
+    }
+  }
+
+  auto It = ExprToLoc.find(&CanonE);
   return It == ExprToLoc.end() ? nullptr : &*It->second;
 }
 
